@@ -12,6 +12,7 @@ class AgentState:
         self.is_stuck = False
         self.stuck_timer = 0.0
         self.best_distance = float('inf')
+        self.is_crashed = False  # Permanent crash state for dynamic obstacle collisions
 
 
 def get_observations(agent_state, environment, lidar_data=None):

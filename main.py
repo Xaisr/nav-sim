@@ -14,7 +14,7 @@ CONTROLS:
 - 0-9: Switch environments
 - Q: Naive Direct strategy
 - W: A* Pathfinding strategy
-- E: D* Lite strategy (partial observability)
+- E: A* with Incremental Discovery (partial observability, lidar shown)
 - R: Reserved for future strategies
 - ESC: Quit
 """
@@ -41,7 +41,9 @@ def reset_agent_state(environment):
     center = (agent_state.position.centerx, agent_state.position.centery)
     agent_state.best_distance = math.hypot(center[0] - environment["goal"][0], center[1] - environment["goal"][1])
     agent_state.astar_path = None  # Reset A* path
+    agent_state.astar_last_replan = 0  # Reset replan timer
     agent_state.dstar_known_obstacles = None  # Reset D* Lite state
+    agent_state.is_crashed = False  # Reset crash state
     return agent_state
 
 
@@ -100,8 +102,15 @@ def main():
                         strategy = NAVIGATION_STRATEGIES[current_strategy_idx]
                         agent_state = reset_agent_state(environment)
 
-        # Perform lidar scan
-        lidar_data = lidar_scan(agent_state.position, environment["obstacles"])
+        # Update dynamic obstacles if present
+        if "dynamic_obstacles" in environment:
+            for dyn_obs in environment["dynamic_obstacles"]:
+                dyn_obs.update(dt)
+
+        # Perform lidar scan only for strategy E (partial observability)
+        lidar_data = None
+        if current_strategy_idx == 2:  # D* Lite / partial observability
+            lidar_data = lidar_scan(agent_state.position, environment["obstacles"])
 
         # Get observations from environment
         observations = get_observations(agent_state, environment, lidar_data)
@@ -113,11 +122,12 @@ def main():
         agent_state.distance_to_goal = observations["distance"]
         agent_state.is_colliding = episode_status["collision"]
 
-        # Check stuck status
-        check_stuck_status(agent_state, dt)
+        # Check stuck status (only if not crashed)
+        if not agent_state.is_crashed:
+            check_stuck_status(agent_state, dt)
 
         # Navigation strategy: decide action
-        if not episode_status["goal_reached"]:
+        if not episode_status["goal_reached"] and not agent_state.is_crashed:
             # Some strategies need agent_state and environment
             if current_strategy_idx == 1:  # A* Pathfinding
                 action = strategy["function"](observations, dt, agent_state, environment)
@@ -128,8 +138,9 @@ def main():
         else:
             action = (0, 0)
 
-        # Execute action
-        execute_action(agent_state, action, environment, dt)
+        # Execute action (skipped if crashed)
+        if not agent_state.is_crashed:
+            execute_action(agent_state, action, environment, dt)
 
         # Render
         hint = render(screen, agent_state, environment, episode_status, observations, lidar_data, current_strategy_idx)

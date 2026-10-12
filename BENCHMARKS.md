@@ -19,6 +19,7 @@ This document tracks performance metrics across different navigation strategies 
 | 2 | Hard | Dense walls with narrow gaps | 7 obstacles | High |
 | 3 | Deceptive Maze | Dead ends and alternating barriers | Multiple barriers | High |
 | 4 | Labyrinth | Complex maze with narrow corridors | 18-34px walls | Very High |
+| 5 | Dynamic Maze | Environment 3 with 5 moving obstacles | 25 static + 5 dynamic | Very High |
 
 ## Navigation Strategies
 
@@ -69,6 +70,14 @@ This document tracks performance metrics across different navigation strategies 
 | Naive Direct | ❌ 0% | N/A | N/A | Stuck | Fails immediately |
 | A* Pathfinding | ✅ 100% | ~1500px | ~328 | ~5s | Requires 10px robot for 18px corridors |
 | A* w/ Incremental Discovery | ~50-80% | N/A | N/A | N/A | **Stochastic**: Exploration order matters, sometimes succeeds (~50-80% of runs), sometimes gets stuck in dead ends. Multiple narrow corridors create exploration order dependency. |
+
+### Environment 5 (Dynamic Maze)
+
+| Strategy | Success Rate | Path Length | Waypoints | Time to Goal | Notes |
+|----------|--------------|-------------|-----------|--------------|-------|
+| Naive Direct | ❌ 0% | N/A | N/A | Stuck | Fails immediately |
+| A* Pathfinding | 🔄 Pending | N/A | N/A | N/A | Tests dynamic replanning - collision with dynamic obstacle causes permanent crash |
+| A* w/ Incremental Discovery | 🔄 Pending | N/A | N/A | N/A | Tests if incremental discovery can handle dynamic obstacles without crashing |
 
 ## Key Findings
 
@@ -150,3 +159,15 @@ This document tracks performance metrics across different navigation strategies 
 - Discovered stochastic behavior in Environment 4: ~50-80% success rate due to exploration order dependency
 - Updated benchmarks with actual performance data for partial observability strategy
 - Confirmed that true D* Lite would also be stochastic - the issue is exploration strategy, not replanning algorithm
+- Added Environment 5: Dynamic Maze (based on Environment 3 with 5 moving obstacles)
+- Implemented DynamicObstacle class with velocity and bounds
+- Added obstacle movement updates in main loop
+- Updated collision detection to include dynamic obstacles
+- Updated A* strategy to replan periodically in dynamic environments (every 2 seconds)
+- Dynamic obstacles rendered in orange to distinguish from static obstacles
+- Increased dynamic obstacles from 3 to 5 for increased challenge
+- Lidar rays now only shown for strategy E (partial observability)
+- Added permanent crash state for dynamic obstacle collisions
+- Robot turns red and stops moving when hitting dynamic obstacle
+- Must reset environment (0-9) to recover from crash
+- This tests proper dynamic path planning instead of waiting for obstacles to move away

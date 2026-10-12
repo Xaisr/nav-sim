@@ -154,9 +154,28 @@ def astar_navigation(observations, dt, agent_state, environment):
     if distance == 0:
         return 0, 0
 
+    # For dynamic environments, invalidate path periodically or on collision
+    if "dynamic_obstacles" in environment:
+        # Simple approach: replan every 2 seconds in dynamic environments
+        if not hasattr(agent_state, 'astar_last_replan'):
+            agent_state.astar_last_replan = 0
+        if not hasattr(agent_state, 'astar_replan_interval'):
+            agent_state.astar_replan_interval = 2.0  # Replan every 2 seconds
+
+        # Check if it's time to replan
+        agent_state.astar_last_replan += dt
+        if agent_state.astar_last_replan >= agent_state.astar_replan_interval:
+            agent_state.astar_path = None  # Force replan
+            agent_state.astar_last_replan = 0
+
     # Initialize path if not already computed
     if not hasattr(agent_state, 'astar_path') or agent_state.astar_path is None:
-        grid, (rows, cols) = world_to_grid(position, environment["obstacles"])
+        # Include dynamic obstacles in grid computation
+        all_obstacles = environment["obstacles"].copy()
+        if "dynamic_obstacles" in environment:
+            all_obstacles += [dyn_obs.rect for dyn_obs in environment["dynamic_obstacles"]]
+
+        grid, (rows, cols) = world_to_grid(position, all_obstacles)
         print(f"[A*] Computing path in {environment['name']}...")
         agent_state.astar_path = astar_search(grid, position, goal)
         agent_state.astar_index = 0

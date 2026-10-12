@@ -15,6 +15,41 @@ def walls(*segments):
     return [pygame.Rect(*segment) for segment in segments]
 
 
+class DynamicObstacle:
+    """A moving obstacle with linear motion and bounds."""
+    def __init__(self, x, y, width, height, velocity, bounds):
+        """
+        Args:
+            x, y, width, height: obstacle dimensions
+            velocity: (vx, vy) in pixels per second
+            bounds: (min_x, max_x, min_y, max_y) - obstacle bounces within these bounds
+        """
+        self.rect = pygame.Rect(x, y, width, height)
+        self.velocity = velocity  # (vx, vy) pixels per second
+        self.bounds = bounds  # (min_x, max_x, min_y, max_y)
+
+    def update(self, dt):
+        """Update obstacle position based on velocity and time delta."""
+        self.rect.x += self.velocity[0] * dt
+        self.rect.y += self.velocity[1] * dt
+
+        # Bounce off x bounds
+        if self.rect.left < self.bounds[0]:
+            self.rect.left = self.bounds[0]
+            self.velocity = (-self.velocity[0], self.velocity[1])
+        elif self.rect.right > self.bounds[1]:
+            self.rect.right = self.bounds[1]
+            self.velocity = (-self.velocity[0], self.velocity[1])
+
+        # Bounce off y bounds
+        if self.rect.top < self.bounds[2]:
+            self.rect.top = self.bounds[2]
+            self.velocity = (self.velocity[0], -self.velocity[1])
+        elif self.rect.bottom > self.bounds[3]:
+            self.rect.bottom = self.bounds[3]
+            self.velocity = (self.velocity[0], -self.velocity[1])
+
+
 ENVIRONMENTS = {
     0: {
         "name": "Easy",
@@ -154,6 +189,90 @@ ENVIRONMENTS = {
             (116, 516, 68, 18), (216, 516, 68, 18), (416, 516, 18, 18), (466, 516, 18, 50),
             (516, 516, 218, 18), (116, 534, 18, 32), (0, 566, 800, 34),
         ),
+    },
+
+    # =========================================================
+    # ENVIRONMENT 5: DYNAMIC MAZE
+    #
+    # Based on Environment 3 (Deceptive Maze) with 3 moving obstacles.
+    # Tests dynamic path planning and replanning.
+    #
+    #   - Static maze structure (same as Environment 3)
+    #   - 3 moving obstacles traverse different paths
+    #   - Obstacle 1: Moves horizontally across the maze (early stage)
+    #   - Obstacle 2: Moves vertically through center (middle stage)
+    #   - Obstacle 3: Moves diagonally toward goal (end stage)
+    #   - Challenge: Detect when path becomes invalid and replan
+    # =========================================================
+    5: {
+        "name": "Dynamic Maze",
+        "start": [40, 40],
+        "goal": (750, 560),
+        "obstacles": walls(
+            # Same static maze as Environment 3
+            (0, 130, 230, 20),
+            (300, 130, 190, 20),
+            (560, 130, 240, 20),
+
+            (0, 280, 150, 20),
+            (220, 280, 200, 20),
+            (490, 280, 190, 20),
+
+            (0, 430, 280, 20),
+            (350, 430, 190, 20),
+            (610, 430, 190, 20),
+
+            (0, 520, 170, 20),
+            (240, 520, 210, 20),
+            (520, 520, 180, 20),
+            (770, 520, 30, 20),
+
+            (350, 160, 25, 85),
+            (520, 165, 25, 80),
+            (270, 310, 25, 85),
+            (600, 310, 25, 85),
+
+            (80, 55, 100, 20),
+            (80, 55, 20, 50),
+            (390, 185, 75, 20),
+            (390, 185, 20, 45),
+            (100, 335, 90, 20),
+            (170, 335, 20, 45),
+            (430, 465, 90, 20),
+            (500, 465, 20, 35),
+        ),
+        "dynamic_obstacles": [
+            # Obstacle 1: Horizontal mover (early stage - blocks initial path)
+            DynamicObstacle(
+                x=100, y=180, width=40, height=40,
+                velocity=(50, 0),  # 50 px/sec to the right
+                bounds=(100, 700, 180, 180)  # Bounds for bouncing
+            ),
+            # Obstacle 2: Vertical mover (middle stage - blocks center path)
+            DynamicObstacle(
+                x=350, y=200, width=40, height=40,
+                velocity=(0, 60),  # 60 px/sec downward
+                bounds=(350, 350, 200, 500)  # Bounds for bouncing
+            ),
+            # Obstacle 3: Diagonal mover (end stage - blocks goal approach)
+            DynamicObstacle(
+                x=600, y=350, width=40, height=40,
+                velocity=(-40, 50),  # Diagonal toward goal
+                bounds=(400, 750, 350, 560)  # Bounds for bouncing
+            ),
+            # Obstacle 4: Fast horizontal mover (late stage - blocks final approach)
+            DynamicObstacle(
+                x=400, y=480, width=60, height=30,
+                velocity=(80, 0),  # 80 px/sec to the right (faster)
+                bounds=(400, 740, 480, 480)  # Bounds for bouncing
+            ),
+            # Obstacle 5: Slow vertical mover (throughout - blocks various paths)
+            DynamicObstacle(
+                x=550, y=100, width=30, height=50,
+                velocity=(0, 40),  # 40 px/sec downward (slower)
+                bounds=(550, 550, 100, 550)  # Bounds for bouncing
+            ),
+        ],
     },
 }
 

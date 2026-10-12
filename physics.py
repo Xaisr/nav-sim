@@ -3,14 +3,22 @@
 import pygame
 from environments import WORLD_WIDTH, WORLD_HEIGHT, AGENT_SIZE, AGENT_SPEED, GOAL_RADIUS
 
-
 def execute_action(agent_state, action, environment, dt):
     """
     Execute the action (movement) with collision detection and avoidance.
     Updates agent_state in place.
     """
+    # If already crashed, don't move
+    if agent_state.is_crashed:
+        return
+
     dx, dy = action
     obstacles = environment["obstacles"]
+
+    # Include dynamic obstacles if present
+    if "dynamic_obstacles" in environment:
+        dynamic_rects = [dyn_obs.rect for dyn_obs in environment["dynamic_obstacles"]]
+        obstacles = obstacles + dynamic_rects
 
     # Calculate new position
     new_x = agent_state.position.x + int(round(dx))
@@ -76,8 +84,19 @@ def check_episode_status(agent_state, environment):
     reached = agent_state.position.colliderect(goal_rect)
     collision = any(agent_state.position.colliderect(obs) for obs in obstacles)
 
+    # Check dynamic obstacle collisions for permanent crash state
+    if "dynamic_obstacles" in environment and not agent_state.is_crashed:
+        dynamic_rects = [dyn_obs.rect for dyn_obs in environment["dynamic_obstacles"]]
+        dynamic_collision = any(agent_state.position.colliderect(obs) for obs in dynamic_rects)
+        if dynamic_collision:
+            agent_state.is_crashed = True  # Permanent crash state
+            collision = True  # Also set collision flag
+    else:
+        dynamic_collision = False
+
     return {
         "goal_reached": reached,
         "collision": collision,
-        "episode_done": reached
+        "dynamic_collision": dynamic_collision if "dynamic_obstacles" in environment else False,
+        "episode_done": reached or agent_state.is_crashed
     }

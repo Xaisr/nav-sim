@@ -18,14 +18,20 @@ def render(screen, agent_state, environment, episode_status, observations, lidar
         for obs in environment["obstacles"]:
             pygame.draw.rect(screen, COLOR_OBSTACLE, obs)
 
+    # Draw dynamic obstacles if present (orange/red to distinguish from static)
+    if "dynamic_obstacles" in environment:
+        for dyn_obs in environment["dynamic_obstacles"]:
+            pygame.draw.rect(screen, (255, 150, 50), dyn_obs.rect)  # Orange for dynamic obstacles
+
     # Draw goal
     pygame.draw.circle(screen, COLOR_GOAL, environment["goal"], GOAL_RADIUS)
 
-    # Draw agent
-    pygame.draw.rect(screen, COLOR_AGENT, agent_state.position)
+    # Draw agent (red if crashed)
+    agent_color = (255, 50, 50) if agent_state.is_crashed else COLOR_AGENT
+    pygame.draw.rect(screen, agent_color, agent_state.position)
 
-    # Draw lidar rays if available
-    if lidar_data:
+    # Draw lidar rays if available (only for strategy E - partial observability)
+    if lidar_data and strategy_idx == 2:
         center_x = agent_state.position.centerx
         center_y = agent_state.position.centery
         num_rays = len(lidar_data)
@@ -44,6 +50,8 @@ def render(screen, agent_state, environment, episode_status, observations, lidar
     # Draw UI hints
     if episode_status["goal_reached"]:
         hint = "Goal reached!"
+    elif agent_state.is_crashed:
+        hint = "CRASHED! Collision with dynamic obstacle | Reset environment (0-9)"
     elif episode_status["collision"]:
         hint = "Collision!"
     else:
