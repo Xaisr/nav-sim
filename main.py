@@ -14,7 +14,8 @@ CONTROLS:
 - 0-9: Switch environments
 - Q: Naive Direct strategy
 - W: A* Pathfinding strategy
-- E/R: Reserved for future strategies
+- E: Reactive Lidar strategy
+- R: Reserved for future strategies
 - ESC: Quit
 """
 
@@ -98,11 +99,11 @@ def main():
                         strategy = NAVIGATION_STRATEGIES[current_strategy_idx]
                         agent_state = reset_agent_state(environment)
 
-        # Get observations from environment
-        observations = get_observations(agent_state, environment)
-
         # Perform lidar scan
         lidar_data = lidar_scan(agent_state.position, environment["obstacles"])
+
+        # Get observations from environment
+        observations = get_observations(agent_state, environment, lidar_data)
 
         # Check episode status
         episode_status = check_episode_status(agent_state, environment)
@@ -119,7 +120,7 @@ def main():
             # Some strategies need agent_state and environment
             if current_strategy_idx == 1:  # A* Pathfinding
                 action = strategy["function"](observations, dt, agent_state, environment)
-            else:
+            else:  # Naive Direct, Reactive Lidar, etc.
                 action = strategy["function"](observations, dt)
         else:
             action = (0, 0)

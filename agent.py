@@ -14,17 +14,20 @@ class AgentState:
         self.best_distance = float('inf')
 
 
-def get_observations(agent_state, environment):
+def get_observations(agent_state, environment, lidar_data=None):
     """Extract observations from the environment for the agent."""
     center = (agent_state.position.centerx, agent_state.position.centery)
     goal = environment["goal"]
     distance = math.hypot(center[0] - goal[0], center[1] - goal[1])
-    return {
+    obs = {
         "position": center,
         "goal": goal,
         "distance": distance,
         "obstacles": environment["obstacles"]
     }
+    if lidar_data is not None:
+        obs["lidar"] = lidar_data
+    return obs
 
 
 def check_stuck_status(agent_state, dt):

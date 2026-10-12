@@ -196,6 +196,59 @@ def astar_navigation(observations, dt, agent_state, environment):
     return 0, 0
 
 
+def reactive_lidar_navigation(observations, dt):
+    """
+    Strategy: Use lidar sensor data for reactive obstacle avoidance.
+    Returns: (dx, dy) movement vector
+    """
+    position = observations["position"]
+    goal = observations["goal"]
+    distance = observations["distance"]
+    lidar = observations.get("lidar", None)
+
+    if distance == 0:
+        return 0, 0
+
+    if lidar is None:
+        # Fallback to naive direct if no lidar data
+        dx = goal[0] - position[0]
+        dy = goal[1] - position[1]
+        dx = (dx / distance) * AGENT_SPEED * dt
+        dy = (dy / distance) * AGENT_SPEED * dt
+        return dx, dy
+
+    # Calculate base direction to goal
+    dx = goal[0] - position[0]
+    dy = goal[1] - position[1]
+    dx = (dx / distance) * AGENT_SPEED * dt
+    dy = (dy / distance) * AGENT_SPEED * dt
+
+    # Lidar obstacle avoidance
+    obstacle_threshold = 50  # pixels
+    avoidance_strength = 2.0  # multiplier for avoidance force
+
+    num_rays = len(lidar)
+    angle_step = 360 / num_rays
+
+    for i, ray_dist in enumerate(lidar):
+        if ray_dist < obstacle_threshold:
+            # Obstacle detected in this direction
+            angle = i * angle_step
+            angle_rad = math.radians(angle)
+
+            # Calculate avoidance force (push away from obstacle)
+            # The closer the obstacle, the stronger the avoidance
+            avoidance_factor = (obstacle_threshold - ray_dist) / obstacle_threshold
+            avoidance_x = -math.cos(angle_rad) * avoidance_strength * avoidance_factor
+            avoidance_y = -math.sin(angle_rad) * avoidance_strength * avoidance_factor
+
+            # Add avoidance to movement
+            dx += avoidance_x * AGENT_SPEED * dt
+            dy += avoidance_y * AGENT_SPEED * dt
+
+    return dx, dy
+
+
 # Registry of navigation strategies - add new strategies here
 NAVIGATION_STRATEGIES = {
     0: {
@@ -206,6 +259,10 @@ NAVIGATION_STRATEGIES = {
         "name": "A* Pathfinding",
         "function": astar_navigation
     },
+    2: {
+        "name": "Reactive Lidar",
+        "function": reactive_lidar_navigation
+    },
     # Add more strategies here:
-    # 2: {"name": "Wall Following", "function": wall_following_navigation},
+    # 3: {"name": "Wall Following", "function": wall_following_navigation},
 }
