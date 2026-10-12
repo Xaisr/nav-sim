@@ -29,6 +29,7 @@ from agent import AgentState, get_observations, check_stuck_status
 from strategies import NAVIGATION_STRATEGIES
 from physics import execute_action, check_episode_status
 from renderer import render
+from sensors import lidar_scan
 
 
 def reset_agent_state(environment):
@@ -100,6 +101,9 @@ def main():
         # Get observations from environment
         observations = get_observations(agent_state, environment)
 
+        # Perform lidar scan
+        lidar_data = lidar_scan(agent_state.position, environment["obstacles"])
+
         # Check episode status
         episode_status = check_episode_status(agent_state, environment)
 
@@ -124,7 +128,7 @@ def main():
         execute_action(agent_state, action, environment, dt)
 
         # Render
-        hint = render(screen, agent_state, environment, episode_status, observations)
+        hint = render(screen, agent_state, environment, episode_status, observations, lidar_data)
 
         # Draw UI text
         screen.blit(font.render(hint, True, COLOR_TEXT), (10, 10))
