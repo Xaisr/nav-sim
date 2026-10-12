@@ -249,6 +249,90 @@ def reactive_lidar_navigation(observations, dt):
     return dx, dy
 
 
+def dstar_lite_navigation(observations, dt, agent_state, environment):
+    """
+    Strategy: D* Lite for incremental replanning with partial observability.
+    Uses lidar to discover obstacles and updates path incrementally.
+    Returns: (dx, dy) movement vector
+    """
+    position = observations["position"]
+    goal = observations["goal"]
+    distance = observations["distance"]
+    lidar = observations.get("lidar", None)
+
+    if distance == 0:
+        return 0, 0
+
+    # Initialize D* Lite state if not exists
+    if not hasattr(agent_state, 'dstar_known_obstacles') or agent_state.dstar_known_obstacles is None:
+        agent_state.dstar_known_obstacles = []  # List of discovered obstacles
+        agent_state.dstar_path = None
+        agent_state.dstar_path_index = 0
+        agent_state.dstar_grid_size = 10
+
+    # Update known obstacles from lidar
+    # For simplicity: if lidar detects obstacle < 150px, add obstacle at that location
+    # This is a simplified approach - real implementation would build a proper occupancy grid
+    if lidar:
+        center_x = position[0]
+        center_y = position[1]
+        num_rays = len(lidar)
+        angle_step = 360 / num_rays
+
+        for i, ray_dist in enumerate(lidar):
+            if ray_dist < 150:  # Obstacle detected
+                angle = i * angle_step
+                angle_rad = math.radians(angle)
+                obs_x = center_x + math.cos(angle_rad) * ray_dist
+                obs_y = center_y + math.sin(angle_rad) * ray_dist
+
+                # Add obstacle at detected location (10x10 block)
+                new_obs = pygame.Rect(obs_x - 5, obs_y - 5, 10, 10)
+                # Check if already in known obstacles
+                if not any(new_obs.colliderect(existing) for existing in agent_state.dstar_known_obstacles):
+                    agent_state.dstar_known_obstacles.append(new_obs)
+                    # Mark that path needs replanning
+                    agent_state.dstar_path = None
+
+    # Replan if path is None or needs update
+    if agent_state.dstar_path is None:
+        grid, (rows, cols) = world_to_grid(position, agent_state.dstar_known_obstacles, agent_state.dstar_grid_size)
+        print(f"[D* Lite] Replanning with {len(agent_state.dstar_known_obstacles)} known obstacles...")
+        agent_state.dstar_path = astar_search(grid, position, goal, agent_state.dstar_grid_size)
+        agent_state.dstar_path_index = 0
+
+        if agent_state.dstar_path:
+            print(f"[D* Lite] Path found with {len(agent_state.dstar_path)} waypoints")
+        else:
+            print(f"[D* Lite] No path found with current knowledge")
+
+    # Follow the path
+    if agent_state.dstar_path and agent_state.dstar_path_index < len(agent_state.dstar_path):
+        target = agent_state.dstar_path[agent_state.dstar_path_index]
+        dx = target[0] - position[0]
+        dy = target[1] - position[1]
+        dist_to_target = math.hypot(dx, dy)
+
+        if dist_to_target < 8:
+            agent_state.dstar_path_index += 1
+            if agent_state.dstar_path_index < len(agent_state.dstar_path):
+                target = agent_state.dstar_path[agent_state.dstar_path_index]
+                dx = target[0] - position[0]
+                dy = target[1] - position[1]
+                dist_to_target = math.hypot(dx, dy)
+            else:
+                print(f"[D* Lite] Reached final waypoint")
+                agent_state.dstar_path = None
+                return 0, 0
+
+        if dist_to_target > 0:
+            dx = (dx / dist_to_target) * AGENT_SPEED * dt
+            dy = (dy / dist_to_target) * AGENT_SPEED * dt
+            return dx, dy
+
+    return 0, 0
+
+
 # Registry of navigation strategies - add new strategies here
 NAVIGATION_STRATEGIES = {
     0: {
@@ -260,8 +344,8 @@ NAVIGATION_STRATEGIES = {
         "function": astar_navigation
     },
     2: {
-        "name": "Reactive Lidar",
-        "function": reactive_lidar_navigation
+        "name": "D* Lite",
+        "function": dstar_lite_navigation
     },
     # Add more strategies here:
     # 3: {"name": "Wall Following", "function": wall_following_navigation},

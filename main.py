@@ -14,7 +14,7 @@ CONTROLS:
 - 0-9: Switch environments
 - Q: Naive Direct strategy
 - W: A* Pathfinding strategy
-- E: Reactive Lidar strategy
+- E: D* Lite strategy (partial observability)
 - R: Reserved for future strategies
 - ESC: Quit
 """
@@ -41,6 +41,7 @@ def reset_agent_state(environment):
     center = (agent_state.position.centerx, agent_state.position.centery)
     agent_state.best_distance = math.hypot(center[0] - environment["goal"][0], center[1] - environment["goal"][1])
     agent_state.astar_path = None  # Reset A* path
+    agent_state.dstar_known_obstacles = None  # Reset D* Lite state
     return agent_state
 
 
@@ -120,7 +121,9 @@ def main():
             # Some strategies need agent_state and environment
             if current_strategy_idx == 1:  # A* Pathfinding
                 action = strategy["function"](observations, dt, agent_state, environment)
-            else:  # Naive Direct, Reactive Lidar, etc.
+            elif current_strategy_idx == 2:  # D* Lite
+                action = strategy["function"](observations, dt, agent_state, environment)
+            else:  # Naive Direct, etc.
                 action = strategy["function"](observations, dt)
         else:
             action = (0, 0)
@@ -129,7 +132,7 @@ def main():
         execute_action(agent_state, action, environment, dt)
 
         # Render
-        hint = render(screen, agent_state, environment, episode_status, observations, lidar_data)
+        hint = render(screen, agent_state, environment, episode_status, observations, lidar_data, current_strategy_idx)
 
         # Draw UI text
         screen.blit(font.render(hint, True, COLOR_TEXT), (10, 10))
