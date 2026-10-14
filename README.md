@@ -1,4 +1,4 @@
-# Robotics Simulator - RL-Inspired Navigation Testbed
+# Simple Robotics Simulator - RL-Inspired Navigation Testbed
 
 A progressively autonomous navigation environment designed for exploring robotics algorithms, from classical pathfinding to reinforcement learning and space robotics.
 
